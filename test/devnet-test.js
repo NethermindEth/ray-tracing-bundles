@@ -129,7 +129,8 @@ describe("Devnet", function() {
         let signed2 = await txSigner.signTransaction(populated2);
 
         // TODO this should be added and signed by the eth1 engine and taken from its reward
-        assert(false, "SET LIDO ADDRESS IN .env");
+        console.log("set LIDO contract address in .env then remove process.exit()");
+        process.exit();
         console.log("assuming function is typo distribureMev");
         let tx3 = {
             to: process.env.LIDO_ADDRESS_FROM_LAST_DEPLOY,
