@@ -61,9 +61,9 @@ function sleep(time) {
 }
 
 describe("Devnet", function() {
-    this.timeout(100000);
+    this.timeout(200000);
 
-    xit("eth_sendBundle accepts a bundle", async function() {
+    it("eth_sendBundle accepts a bundle", async function() {
         let curBlockNumber = await rpcProvider.getBlockNumber();
         let tx = {
             to: ethers.constants.AddressZero,
@@ -77,7 +77,7 @@ describe("Devnet", function() {
     // const data = await readFile("PlaintextKeys.json");
     // const keys = JSON.parse(data);
     // console.log(keys.account0.privateKey);
-    xit("Allows simple transfer of ether through the bundle pool", async function() {
+    it("Allows simple transfer of ether through the bundle pool", async function() {
         let before = await txSigner.getBalance();
         let curBlockNumber = await rpcProvider.getBlockNumber();
         let tx = {
@@ -96,6 +96,10 @@ describe("Devnet", function() {
     });
 
     it("Transfers coinbase rewards to coinbase and Lido", async function() {
+        async function logLidoBalances(time) {
+            console.log(`balances at ${time}: ?`);
+        }
+        
         let address = await deploy("Coinbase");
         let tx = {
             to: address,
@@ -111,6 +115,8 @@ describe("Devnet", function() {
         let balance = await rpcProvider.getBalance(address);
         expect(balance).to.be.equal(ethers.utils.parseEther("1000"));
 
+        await logLidoBalances("before");
+
         let curBlockNumber = await rpcProvider.getBlockNumber();
         // const coinbaseContract = new ethers.Contract(address, ABIS.COINBASE, txSigner);
         // let populatedPay = await coinbaseContract.populateTransaction.pay();
@@ -123,9 +129,12 @@ describe("Devnet", function() {
         let signed2 = await txSigner.signTransaction(populated2);
 
         // TODO this should be added and signed by the eth1 engine and taken from its reward
+        assert(false, "SET LIDO ADDRESS IN .env");
+        console.log("assuming function is typo distribureMev");
         let tx3 = {
             to: process.env.LIDO_ADDRESS_FROM_LAST_DEPLOY,
-            data: ""
+            data: "0x3c45a3d2", // TODO assuming its called distribureMev
+            value: ethers.utils.parseEther("2000")
         }
         let populated3 = await txSigner.populateTransaction(tx3);
         let signed3 = await txSigner.signTransaction(populated3);
@@ -135,6 +144,8 @@ describe("Devnet", function() {
 
         let newBalance = await rpcProvider.getBalance(address);
         expect(newBalance.toString()).to.be.equal("0");
+
+        await logLidoBalances("after");
     });
 
     xit("Bundle tx push out regular tx", async function() {

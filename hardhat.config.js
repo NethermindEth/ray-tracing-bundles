@@ -7,7 +7,22 @@ require('dotenv').config();
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-    solidity: "0.6.12",
+    solidity: {
+        compilers: [
+            {
+                version: "0.6.12"
+            },
+            {
+                version: "0.4.24"
+            },
+            {
+                version: "0.8.0"
+            },
+            {
+                version: "0.8.4"
+            }
+        ]
+    },
     // --network localhost for hardhat node
     networks: {
         localhost_hardhat: {
@@ -23,7 +38,8 @@ module.exports = {
         }
     },
     paths: {
-        sources: "./contracts"
+        // sources: "./contracts"
+        sources: "./rayonism-mev-hackathon/contracts"
     }
 };
 
