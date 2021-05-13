@@ -9,18 +9,9 @@ require('dotenv').config();
 const rpcProvider = new ethers.providers.JsonRpcProvider(`${process.env.NETHERMIND_ETH1_NODE}`);
 const txSigner = new ethers.Wallet(process.env.SIGNER_PK, rpcProvider);
 
-const ABIS = {
-    COINBASE: [
-        `function pay() public`
-    ],
-    LIDO: [
-        `function distributeMev() external payable`
-    ]
-}
+const ABIS = {}
 
-const ADDRS = {
-
-}
+const ADDRS = {}
 
 async function deploy(contract) {
     switch(contract) {
@@ -47,6 +38,7 @@ async function deploy(contract) {
     }
 }
 
+// TODO use a loopy contract too?
 async function genSignedTx(n) {
     let signedtx = [];
     let startingNonce = await txSigner.getTransactionCount();
@@ -69,12 +61,23 @@ function sleep(time) {
 }
 
 describe("Devnet", function() {
-    this.timeout(50000);
+    this.timeout(100000);
+
+    xit("eth_sendBundle accepts a bundle", async function() {
+        let curBlockNumber = await rpcProvider.getBlockNumber();
+        let tx = {
+            to: ethers.constants.AddressZero,
+            value: ethers.utils.parseEther("1")
+        }
+        let signedTx = await txSigner.signTransaction(tx);
+        let bundle = [signedTx];
+        expect(await rpcProvider.send('eth_sendBundle', [bundle, curBlockNumber+1,0,0])).to.be.equal(true);
+    });
 
     // const data = await readFile("PlaintextKeys.json");
     // const keys = JSON.parse(data);
     // console.log(keys.account0.privateKey);
-    it("Allows transfer of ether through the bundle pool", async function() {
+    xit("Allows simple transfer of ether through the bundle pool", async function() {
         let before = await txSigner.getBalance();
         let curBlockNumber = await rpcProvider.getBlockNumber();
         let tx = {
@@ -92,7 +95,7 @@ describe("Devnet", function() {
         expect(before).to.not.be.equal(after);
     });
 
-    it("Transfers coinbase rewards", async function() {
+    it("Transfers coinbase rewards to coinbase and Lido", async function() {
         let address = await deploy("Coinbase");
         let tx = {
             to: address,
@@ -108,43 +111,30 @@ describe("Devnet", function() {
         let balance = await rpcProvider.getBalance(address);
         expect(balance).to.be.equal(ethers.utils.parseEther("1000"));
 
-        // process.exit();
-
         let curBlockNumber = await rpcProvider.getBlockNumber();
-        const coinbaseContract = new ethers.Contract(address, ABIS.COINBASE, txSigner);
-        let populatedPay = await coinbaseContract.populateTransaction.pay();
-        let signedPay = await txSigner.signTransaction(populatedPay);
-        await rpcProvider.send("eth_sendBundle", [[signedPay],curBlockNumber+1,0,0]);
+        // const coinbaseContract = new ethers.Contract(address, ABIS.COINBASE, txSigner);
+        // let populatedPay = await coinbaseContract.populateTransaction.pay();
+        // let signedPay = await txSigner.signTransaction(populatedPay);
+        let tx2 = {
+            to: address,
+            data: "0x1b9265b8"
+        }
+        let populated2 = await txSigner.populateTransaction(tx2);
+        let signed2 = await txSigner.signTransaction(populated2);
+
+        // TODO this should be added and signed by the eth1 engine and taken from its reward
+        let tx3 = {
+            to: process.env.LIDO_ADDRESS_FROM_LAST_DEPLOY,
+            data: ""
+        }
+        let populated3 = await txSigner.populateTransaction(tx3);
+        let signed3 = await txSigner.signTransaction(populated3);
+
+        await rpcProvider.send("eth_sendBundle", [[signed2, signed3],curBlockNumber+1,0,0]);
         await sleep(12000);
+
         let newBalance = await rpcProvider.getBalance(address);
         expect(newBalance.toString()).to.be.equal("0");
-
-        process.exit();
-        const lido = new ethers.Contract(ADDRS.LIDO, ABIS.LIDO, txSigner);
-
-        let distributeTx = lido.populateTransaction().distributeMev({value: ethers.utils.parseEther(6_000_000).toString()});
-        distributeTx.gasPrice = 0;
-        let distributeTxSigned = await txSigner.signTransaction(distributeTx);
-
-        const bundle = [payTxSigned, distributeTxSigned];
-        console.log(await rpcProvider.send('eth_sendBundle', bundle, curBlockNumber+1, 0, 0));
-
-        let eth1 = await rpcProvider.getBalance(ADDRS.ETH1_COINBASE);
-        let lidoBalance = await rpcProvider.getBalance(ADDRS.LIDO);
-        
-        expect(eth1).to.equal(ethers.utils.parseEther(3_000_000));
-        expect(lidoBalance).to.equal(ethers.utils.parseEther(6_000_000));
-    });
-
-    it("eth_sendBundle accepts a bundle", async function() {
-        let curBlockNumber = await rpcProvider.getBlockNumber();
-        let tx = {
-            to: ethers.constants.AddressZero,
-            value: ethers.utils.parseEther("1")
-        }
-        let signedTx = await txSigner.signTransaction(tx);
-        let bundle = [signedTx];
-        expect(await rpcProvider.send('eth_sendBundle', [bundle, curBlockNumber+1,0,0])).to.be.equal(true);
     });
 
     xit("Bundle tx push out regular tx", async function() {
